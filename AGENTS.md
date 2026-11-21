@@ -152,3 +152,23 @@ The platform manages the bot's webhook for you, derived from your deployed
 `handlers/*`, and refreshes it on `push`. If it ever drifts — e.g. someone called
 `setWebhook` with the raw bot token — `npx tgcloud webhook` shows the mismatch and
 `npx tgcloud webhook sync` repairs it.
+
+## This project: Persian news/sports group bot
+
+- Content: `tgcloud/lib/sources.js` (RSS feeds) → `lib/rss.js` (parse, incl. the
+  story image) → `lib/rank.js` (dedupe/rank) → `lib/digest.js` (Persian HTML and
+  photo captions) → `lib/publish.js` (send + remember). With `images` on, each
+  story is its own message (photo + caption, or text when it has no image); with
+  `images` off, one compact text digest per category.
+- Admin state lives in the `settings` table (`lib/settings.js`); bootstrap the
+  first admin with `/claim`, the destination group with `/setgroup` or by adding
+  the bot to the group (`handlers/my_chat_member.js`).
+- **There is no platform cron.** `.github/workflows/auto-post.yml` runs
+  `npx tgcloud run endpoints/scheduler '{"force":false}'` every 30 minutes with
+  `TGCLOUD_TOKEN`. `endpoints/scheduler.js` → `lib/jobs.js` decides whether the
+  interval elapsed; the DB lock prevents double posting.
+- `force: true` (admin buttons / `/post` / manual workflow run) ignores the
+  interval, quiet hours and the enabled flag, but still respects the lock.
+- All user-facing copy is Persian and lives in `lib/ui.js`; keep new messages
+  Persian too.
+- After schema changes: `npx tgcloud push` **and** `npx tgcloud migrate`.

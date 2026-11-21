@@ -1,0 +1,68 @@
+name: Auto post
+
+on:
+  schedule:
+    # Every 30 minutes. The bot itself decides whether the configured interval
+    # (default: 3 hours) has elapsed, so this can stay frequent and cheap.
+    - cron: "*/30 * * * *"
+  workflow_dispatch:
+    inputs:
+      force:
+        description: "Post immediately, ignoring the interval and quiet hours"
+        type: boolean
+        default: false
+      category:
+        description: "Which digest to post"
+        type: choice
+        options: ["both", "news", "sports"]
+        default: "both"
+
+concurrency:
+  group: auto-post
+  cancel-in-progress: false
+
+jobs:
+  tick:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Setup Node
+        uses: actions/setup-node@v5
+        with:
+          node-version: "22"
+
+      - name: Check project files
+        run: |
+          missing=0
+          for f in tgcloud/endpoints/scheduler.js tgcloud/lib/jobs.js tgcloud/schema.js; do
+            if [ ! -f "$f" ]; then
+              echo "::error file=$f::Missing $f — the bot code is not committed to this repository."
+              missing=1
+            fi
+          done
+          exit $missing
+
+      - name: Run scheduler
+        env:
+          TGCLOUD_TOKEN: ${{ secrets.TGCLOUD_TOKEN }}
+          FORCE: ${{ inputs.force }}
+          CATEGORY: ${{ inputs.category }}
+        run: |
+          set -euo pipefail
+          if [ -z "${TGCLOUD_TOKEN:-}" ]; then
+            echo "Missing TGCLOUD_TOKEN repository secret." >&2
+            exit 1
+          fi
+
+          args='{"force":false}'
+          if [ "${FORCE:-false}" = "true" ]; then
+            args='{"force":true}'
+          fi
+          if [ -n "${CATEGORY:-}" ] && [ "${CATEGORY}" != "both" ]; then
+            args=$(node -e 'const a=JSON.parse(process.argv[1]); a.categories=[process.argv[2]]; process.stdout.write(JSON.stringify(a))' "$args" "$CATEGORY")
+          fi
+
+          npx --yes @tgcloud/cli@0.2.0 run endpoints/scheduler "$args"

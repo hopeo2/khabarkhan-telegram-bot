@@ -7,6 +7,11 @@
   "scripts": {
     "deploy": "tgcloud push",
     "status": "tgcloud status",
-    "run": "tgcloud run"
+    "run": "tgcloud run",
+    "migrate": "tgcloud migrate",
+    "tick": "tgcloud run endpoints/scheduler '{\"force\":false}'",
+    "post": "tgcloud run endpoints/scheduler '{\"force\":true}'",
+    "post:news": "tgcloud run endpoints/scheduler '{\"force\":true,\"categories\":[\"news\"]}'",
+    "post:sports": "tgcloud run endpoints/scheduler '{\"force\":true,\"categories\":[\"sports\"]}'"
   }
 }
